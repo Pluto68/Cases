@@ -1,0 +1,661 @@
+---
+title: "SOK-1004, høst 2022, Mappeoppgave 2"
+author: "60"
+format: html
+editor: visual
+---
+
+```{r}
+rm(list=ls()) 
+library(tidyverse)
+library(lubridate)
+library(rjstat)
+library(janitor)
+library(gdata)
+library(httr) 
+```
+
+Oppgave 1a
+
+```{r}
+rm(list = ls())
+
+suppressPackageStartupMessages(library(tidyverse))
+
+
+# vi lager oss noen tall for x-variabelen (mat)
+
+x <- seq(0, 10500, by = 1)
+
+# gjør om til data frame
+
+df <- data.frame(x)
+
+#lag aksen for tegningen
+
+axes_1 <- ggplot(df, aes(x))+
+  labs(title="Husholdningens tilpasning", 
+    x="Mat",
+    y="Konsumgoder")+
+  theme(axis.title = element_text(size = 20),
+        plot.title = element_text(size = 20),
+        panel.background = element_blank(), # hvit bakgrunn
+        axis.line = element_line(colour = "black"))+ # sett inn akselinjer
+  coord_fixed(ratio = 1)+ # lik skala for x og y aksen
+  scale_x_continuous(limits = c(0, 10500), expand = c(0, 0))+
+  scale_y_continuous(limits = c(0, 9000), expand = c(0, 0)) # begrense aksene
+# og sikre at akselinjene møttes i (0,0).
+
+# vi angir noen indifferenskurver
+
+I_0 <- function(x) (4000^(5/3))/x^(2/3) # nyttenivå 4000
+I_1 <- function(x) (4741^(5/3))/x^(2/3)
+I_2 <- function(x) (5500^(5/3))/x^(2/3)
+
+figur_1 <- axes_1 + 
+  stat_function(df,
+        fun=I_0,
+        mapping = aes()
+        ) +
+  stat_function(df,
+                fun=I_1,
+                mapping = aes()
+  ) +
+  stat_function(df,
+                fun=I_2,
+                mapping = aes()
+  )+
+  annotate("text",x=10000,y=1900, label="I_0")+
+  annotate("text",x=10000,y=2650, label="I_1")+
+  annotate("text",x=10000,y=3500, label="I_2")
+
+figur_1
+```
+
+1\) indifferenskurvene heller nedover for at vi skal kunne si noe om og måle hvor mye konsumgoder og mat en person eller en husholdning vil kunne bruke på med sitt gitte budsjett. Om man velger og bruke 10000 på mat i en gitt periode vil den samme personen kun ha igjen 2500 til å bruke på andre konsumgoder, samme gjelder om en bruker mer på konsumgoder slik at man blir sittenede igjen med mindre penger å bruke på mat.
+
+2\) Kurven på linjene viser til at det er større nyttenivå langs x-aksen. Vi kan se at om vi legger en strek fra 5000 til vi treffer kurven og deretter bort til y-aksen vil vi alltid få større nytteverdi en om vi legger en strek fra tilsvarende verdi fra y til x aksen.
+
+3\) på alle de 3 forskjellige indifferensekurvene ser vi en annen realinntekt vi går ut ifra at i alle tilfellene at vi bruker alt budsjettet presentert, og derfor vil aldri kurvene krysse.
+
+oppgave 1b
+
+1\) m = p1\*x1 + p2\*x2
+
+m = 0.80\*x1 + 1\*x2
+
+m--inntekt
+
+P1--prisen på gode 1
+
+X1--konsum/antall av gode 1
+
+P2--prisen på gode 2
+
+X2--konsum/antall av gode 2
+
+2\) helningen forteller oss forholdet mellom gode 1 og gode 2. Samtidig som den viser oss hvor villig konsumenten er til å gi opp litt av en av godene for mer av den andre
+
+oppgave 1c
+
+```{r}
+bud_1 <- function(x) 8500-0.8*x
+figur_2 <- figur_1+
+  stat_function(df,fun=bud_1, mapping = aes())+
+annotate("text",x=8900,y=1000, label="bud_1")
+
+figur_2
+```
+
+1\) Slik vi ser det i grafen her, så kan vi se at budsjettlinjen treffer I_0 og I_1. ut ifra dette så vil husholdningen få mer nytte fra indifferenslinje I_1 en fra I_0. Da vet vi at deres optimale tilpasning vil ligge på et punkt der budsjettlinjen krysser I_1. I grafen kan vi ser at den optimale tilpassningen er 5100 konsumgoder og 4250 på mat.
+
+2\) mat = 0.80\*4250 = 3400
+
+konsumgoder = 1 = 5100
+
+5100 + 3400 = 8500
+
+Oppgave 2
+
+```{r}
+url <- "https://data.ssb.no/api/v0/no/table/03013/"
+
+query <- '{
+  "query": [
+    {
+      "code": "Konsumgrp",
+      "selection": {
+        "filter": "vs:CoiCop2016niva2",
+        "values": [
+          "01"
+        ]
+      }
+    },
+    {
+      "code": "ContentsCode",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "KpiVektMnd"
+        ]
+      }
+    },
+    {
+      "code": "Tid",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "1999M01",
+          "1999M02",
+          "1999M03",
+          "1999M04",
+          "1999M05",
+          "1999M06",
+          "1999M07",
+          "1999M08",
+          "1999M09",
+          "1999M10",
+          "1999M11",
+          "1999M12",
+          "2000M01",
+          "2000M02",
+          "2000M03",
+          "2000M04",
+          "2000M05",
+          "2000M06",
+          "2000M07",
+          "2000M08",
+          "2000M09",
+          "2000M10",
+          "2000M11",
+          "2000M12",
+          "2001M01",
+          "2001M02",
+          "2001M03",
+          "2001M04",
+          "2001M05",
+          "2001M06",
+          "2001M07",
+          "2001M08",
+          "2001M09",
+          "2001M10",
+          "2001M11",
+          "2001M12",
+          "2002M01",
+          "2002M02",
+          "2002M03",
+          "2002M04",
+          "2002M05",
+          "2002M06",
+          "2002M07",
+          "2002M08",
+          "2002M09",
+          "2002M10",
+          "2002M11",
+          "2002M12",
+          "2003M01",
+          "2003M02",
+          "2003M03",
+          "2003M04",
+          "2003M05",
+          "2003M06",
+          "2003M07",
+          "2003M08",
+          "2003M09",
+          "2003M10",
+          "2003M11",
+          "2003M12",
+          "2004M01",
+          "2004M02",
+          "2004M03",
+          "2004M04",
+          "2004M05",
+          "2004M06",
+          "2004M07",
+          "2004M08",
+          "2004M09",
+          "2004M10",
+          "2004M11",
+          "2004M12",
+          "2005M01",
+          "2005M02",
+          "2005M03",
+          "2005M04",
+          "2005M05",
+          "2005M06",
+          "2005M07",
+          "2005M08",
+          "2005M09",
+          "2005M10",
+          "2005M11",
+          "2005M12",
+          "2006M01",
+          "2006M02",
+          "2006M03",
+          "2006M04",
+          "2006M05",
+          "2006M06",
+          "2006M07",
+          "2006M08",
+          "2006M09",
+          "2006M10",
+          "2006M11",
+          "2006M12",
+          "2007M01",
+          "2007M02",
+          "2007M03",
+          "2007M04",
+          "2007M05",
+          "2007M06",
+          "2007M07",
+          "2007M08",
+          "2007M09",
+          "2007M10",
+          "2007M11",
+          "2007M12",
+          "2008M01",
+          "2008M02",
+          "2008M03",
+          "2008M04",
+          "2008M05",
+          "2008M06",
+          "2008M07",
+          "2008M08",
+          "2008M09",
+          "2008M10",
+          "2008M11",
+          "2008M12",
+          "2009M01",
+          "2009M02",
+          "2009M03",
+          "2009M04",
+          "2009M05",
+          "2009M06",
+          "2009M07",
+          "2009M08",
+          "2009M09",
+          "2009M10",
+          "2009M11",
+          "2009M12",
+          "2010M01",
+          "2010M02",
+          "2010M03",
+          "2010M04",
+          "2010M05",
+          "2010M06",
+          "2010M07",
+          "2010M08",
+          "2010M09",
+          "2010M10",
+          "2010M11",
+          "2010M12",
+          "2011M01",
+          "2011M02",
+          "2011M03",
+          "2011M04",
+          "2011M05",
+          "2011M06",
+          "2011M07",
+          "2011M08",
+          "2011M09",
+          "2011M10",
+          "2011M11",
+          "2011M12",
+          "2012M01",
+          "2012M02",
+          "2012M03",
+          "2012M04",
+          "2012M05",
+          "2012M06",
+          "2012M07",
+          "2012M08",
+          "2012M09",
+          "2012M10",
+          "2012M11",
+          "2012M12",
+          "2013M01",
+          "2013M02",
+          "2013M03",
+          "2013M04",
+          "2013M05",
+          "2013M06",
+          "2013M07",
+          "2013M08",
+          "2013M09",
+          "2013M10",
+          "2013M11",
+          "2013M12",
+          "2014M01",
+          "2014M02",
+          "2014M03",
+          "2014M04",
+          "2014M05",
+          "2014M06",
+          "2014M07",
+          "2014M08",
+          "2014M09",
+          "2014M10",
+          "2014M11",
+          "2014M12",
+          "2015M01",
+          "2015M02",
+          "2015M03",
+          "2015M04",
+          "2015M05",
+          "2015M06",
+          "2015M07",
+          "2015M08",
+          "2015M09",
+          "2015M10",
+          "2015M11",
+          "2015M12",
+          "2016M01",
+          "2016M02",
+          "2016M03",
+          "2016M04",
+          "2016M05",
+          "2016M06",
+          "2016M07",
+          "2016M08",
+          "2016M09",
+          "2016M10",
+          "2016M11",
+          "2016M12",
+          "2017M01",
+          "2017M02",
+          "2017M03",
+          "2017M04",
+          "2017M05",
+          "2017M06",
+          "2017M07",
+          "2017M08",
+          "2017M09",
+          "2017M10",
+          "2017M11",
+          "2017M12",
+          "2018M01",
+          "2018M02",
+          "2018M03",
+          "2018M04",
+          "2018M05",
+          "2018M06",
+          "2018M07",
+          "2018M08",
+          "2018M09",
+          "2018M10",
+          "2018M11",
+          "2018M12",
+          "2019M01",
+          "2019M02",
+          "2019M03",
+          "2019M04",
+          "2019M05",
+          "2019M06",
+          "2019M07",
+          "2019M08",
+          "2019M09",
+          "2019M10",
+          "2019M11",
+          "2019M12",
+          "2020M01",
+          "2020M02",
+          "2020M03",
+          "2020M04",
+          "2020M05",
+          "2020M06",
+          "2020M07",
+          "2020M08",
+          "2020M09",
+          "2020M10",
+          "2020M11",
+          "2020M12",
+          "2021M01",
+          "2021M02",
+          "2021M03",
+          "2021M04",
+          "2021M05",
+          "2021M06",
+          "2021M07",
+          "2021M08",
+          "2021M09",
+          "2021M10",
+          "2021M11",
+          "2021M12",
+          "2022M01",
+          "2022M02",
+          "2022M03",
+          "2022M04",
+          "2022M05",
+          "2022M06",
+          "2022M07",
+          "2022M08",
+          "2022M09"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+
+hent_indeks.tmp <- url %>%
+  POST(body = query, encode = "json")
+
+df1 <-  hent_indeks.tmp %>%
+  content("text") %>%
+  fromJSONstat() %>%
+  as_tibble()
+
+df1 <- df1 %>%
+  separate(måned,
+           into=c("år", "måned"),
+           sep="M") %>%
+  mutate(dato= ymd(paste(år, måned, "1"))) %>%
+  subset(select = -c(år, måned))
+
+df1 %>%
+  ggplot((aes(x=dato, y=value)))+
+  geom_line()+
+  labs(x= "år",
+       y= "verdi",
+       title = "KPI vekter på matvarer og alkolfrie drikkevarer over tid",
+       subtitle= " ")+
+       scale_color_discrete(name=" ",
+                            labels = c(" ", " "))+
+  theme(legend.position = "bottom",
+        panel.grid.major = element_line(color="grey", size =0.1),
+        panel.border = element_rect(color="grey", fill = NA, size= 0.2))+
+  theme(axis.text.x=element_text(size= 10))+
+  theme_bw()
+```
+
+```{r}
+df1$år = substr(df1$dato, 1, nchar(df1$dato)-1)
+
+df1 <- df1 %>%
+  group_by(år)%>%
+  summarize(across(c("value", "dato"), mean, na.rm=TRUE))
+
+df1 <- df1 %>%
+  filter(år >= "2000", år <= "2011")%>%
+  mutate(value = value/10)
+df1 <- subset(df1, select = -c(år, dato))
+
+df1 <- rename(df1, value2 = value)
+
+```
+
+```{r}
+url2 = "https://data.ssb.no/api/v0/no/table/10235/"
+query2 <- '{
+  "query": [
+    {
+      "code": "Forbruksundersok",
+      "selection": {
+        "filter": "vs:ForbrukHushold2",
+        "values": [
+          "FB2_01"
+        ]
+      }
+    },
+    {
+      "code": "ContentsCode",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "AndForbrUtg"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+  
+  hent_indeks.tmp2 <- url2 %>%
+  POST(body = query2, encode = "json")
+
+df2 <-  hent_indeks.tmp2 %>%
+  content("text") %>%
+  fromJSONstat() %>%
+  as_tibble()
+
+df2$år <- as.integer(df2$år)
+
+df3 <- df2 %>%
+  cbind(df1)
+
+  
+
+df3 %>%
+  ggplot(aes(x=år, y=value, group = 1)) +
+  geom_line() +
+  geom_line(mapping = aes(x = år, y= value, color = statistikkvariabel))+
+  geom_line(mapping = aes(x= , y= value2, color= "vare og tjenestegruppe"))+
+  labs(x = "år",
+       y= "verdi i %",
+       title = "Budsjettandeler og vekter i konsumprisindeks",
+       subtitle = " ")+
+  scale_color_discrete(name = " ",
+                       labels= c("Konsumprisindeks", "Forbruksutgift"))+
+  theme(legend.position = "bottom",
+        panel.grid.major = element_line(color = "grey", size = 0.1),
+        panel.border = element_rect(color="grey", fill=NA, size= 0.2))+
+  theme(axis.text.x=element_text(size = 10))+
+  theme_bw()
+```
+
+1\) figuren viser prosentverdien til både konsumprisindeks og forbruksundersøkelsen i årene 1999-2012
+
+2\) Som foreslått i nytt om konsumprisindeks så er det forskjell i hvordan de presenterte verdiene måles. Den ene måler nordmenns konsum i Norge og i utlandet mens den andre måler konsumet til både nordmenn og utlendinger i Norge. Derav forskjellene boligeiernes konsum er heller ikke tatt med i forbruksutgift.
+
+3\) Siden 2011 har det blitt flere verdier inkludert i konsumprisindksen i vektene er det blitt inkludert husholdningens konsumutgifter knyttet til livsforsikring. I tillegg er det siden 2011 inkludert Financial intermediate services inderectly mesured eller FISIM. Utviklingen av flere målinger vil ha en klar innvirkning på verdiene som er målt
+
+Oppgave 3a
+
+```{r}
+axes_1 <- ggplot(df, aes(x))+
+  labs(title="Husholdningens tilpasning", 
+    x="Mat",
+    y="Konsumgoder")+
+  theme(axis.title = element_text(size = 20),
+        plot.title = element_text(size = 20),
+        panel.background = element_blank(), # hvit bakgrunn
+        axis.line = element_line(colour = "black"))+ # sett inn akselinjer
+  coord_fixed(ratio = 1)+ # lik skala for x og y aksen
+  scale_x_continuous(limits = c(0, 10500), expand = c(0, 0))+
+  scale_y_continuous(limits = c(0, 9000), expand = c(0, 0)) # begrense aksene
+# og sikre at akselinjene møttes i (0,0).
+
+# vi angir noen indifferenskurver
+
+I_0 <- function(x) (4000^(5/3))/x^(2/3) # nyttenivå 4000
+I_1 <- function(x) (4741^(5/3))/x^(2/3)
+I_2 <- function(x) (5500^(5/3))/x^(2/3)
+bud_1 <- function(x) 8500-0.8*x
+bud_2 <- function(x) 8500-0.85*x
+
+figur_3 <- axes_1 + 
+  stat_function(df,
+        fun=I_0,
+        mapping = aes()
+        ) +
+  stat_function(df,
+                fun=I_1,
+                mapping = aes()
+  ) +
+  stat_function(df,
+                fun=I_2,
+                mapping = aes()
+
+  )+
+  annotate("text",x=10000,y=2650, label="I_1")+
+  annotate("text",x=10000,y=3500, label="I_2")+
+  stat_function(df,fun=bud_1, mapping = aes())+
+  stat_function(df,fun=bud_2, mapping = aes())+
+  annotate("text",x=10000,y=1000, label="bud_1")+
+  annotate("text",x=1000,y=1000, label="bud_2")
+
+
+
+figur_3
+```
+
+oppgave 3b
+
+1\) Vi kan se at hvis prisen på mat øker fra 0.80kr til 0.85kr så vil husholdningen generelt bruke mindre penger på mat. Samtidig ser vi at de må også gi opp mer av konsumgoder hvis de skal ha mer mat. Dette går begge veier det vil si at husholdningen må gi opp mer mat for flere konsumgoder. Dette er noe man kan teste enda mer dramatisk ved å øke prisene på en eller begge partene enda mer og kanskje i drastiske stadier.
+
+```{r}
+axes_1 <- ggplot(df, aes(x))+
+  labs(title="Husholdningens tilpasning", 
+    x="Mat",
+    y="Konsumgoder")+
+  theme(axis.title = element_text(size = 20),
+        plot.title = element_text(size = 20),
+        panel.background = element_blank(), # hvit bakgrunn
+        axis.line = element_line(colour = "black"))+ # sett inn akselinjer
+  coord_fixed(ratio = 1)+ # lik skala for x og y aksen
+  scale_x_continuous(limits = c(0, 10500), expand = c(0, 0))+
+  scale_y_continuous(limits = c(0, 9000), expand = c(0, 0)) # begrense aksene
+# og sikre at akselinjene møttes i (0,0).
+
+# vi angir noen indifferenskurver
+ # nyttenivå 4000
+I_1 <- function(x) (4741^(5/3))/x^(2/3)
+I_2 <- function(x) (5500^(5/3))/x^(2/3)
+bud_1 <- function(x) 8925-0.85*x
+bud_2 <- function(x) 8500-0.85*x
+
+figur_4 <- axes_1 + 
+  stat_function(df,
+        fun=I_0,
+        mapping = aes()
+        ) +
+  stat_function(df,
+                fun=I_1,
+                mapping = aes()
+  ) +
+  stat_function(df,
+                fun=I_2,
+                mapping = aes()
+
+  )+
+  annotate("text",x=10000,y=2650, label="I_1")+
+  annotate("text",x=10000,y=3500, label="I_2")+
+  stat_function(df,fun=bud_1, mapping = aes())+
+  stat_function(df,fun=bud_2, mapping = aes())+
+  annotate("text",x=10000,y=1000, label="bud_1")+
+  annotate("text",x=1000,y=1000, label="bud_2")
+
+
+
+figur_4
+```
+
+2\) Hvis staten skal gi støtte nok til at husholdningen kommer seg tilbake til det punktet der mat kostet 0.80kr per stk for husholdningen. Så må de kunne sørge for en ekstra inntekt på rundt 60kr pr periode til husholdningen
+
+3\) Laspeyres sin indeks deler en nåværende periodes pris på en tidligere periodes prisendringer og finner derut prisforskjellen/prisøkningen. Den tar summen av prisen til en vare i observasjons perioden og ganger den med base kvantiteten, deler den deretter på summen av priseni base perioden ganget med base kvantiteten. Setter vi den inn i grafen fra 3b så får vi den samme inntekten som om vi ikke hadde byttet metode.
+
+4\) Konsumprisindeks som en levekosnadsindeks funker veldig bra, den følger med på nordmenn i inn og utlandet og har oversikt over nordmenns kjøpekraft. Dette er et fint verktøyfor å måle kjøpekraften til nordmenn.
