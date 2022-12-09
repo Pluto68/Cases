@@ -1,0 +1,427 @@
+---
+title: "SOK-1004, høst 2022, Prosjektoppgave"
+author: "60"
+format: pdf
+echo: true
+output: true
+editor: visual
+---
+
+**Even Hvinden**
+
+# Instruksjoner
+
+Prosjektoppgaven skal leveres som `.pdf` i WiseFlow. Det ferdige dokumentet lagres som `[kandidatnummer]_SOK1004_PO_H22.pdf`. Hvis du har kandidatnummer 43, sÃ¥ vil filen hete `43_SOK1004_PO_H22.pdf`. Det er ingen begrensning pÃ¥ hvilken programvare dere benytter til Ã¥ lage besvarelsen. Men figurer og utregninger skal gjÃ¸res i RStudio og dokumenteres ved hjelp av en en `.qmd`-fil som kompileres som en `.pdf` og inkluderes som vedlegg i besvarelsen.
+
+Merk at prosjektoppgaven bestÃ¥r av tre oppgaver. Vekttallene er oppgitt i prosent.
+
+Prosjektoppgaven kan besvares alene eller i grupper pÃ¥ opptil tre personer. Det er ikke lov Ã¥ samarbeide pÃ¥ tvers av grupper, og hvert gruppemedlem mÃ¥ levere besvarelsen i WiseFlow. Grupper anbefales Ã¥ undertegne en [samarbeidsavtale](https://github.com/uit-sok-1004-h22/uit-sok-1004-h22.github.io/blob/main/eksamen/Samarbeidsavtale%20for%20gruppearbeid%20SOK1004.pdf).
+
+**NB!** Besvarelser som ikke oppfyller disse kravene vil ikke bli vurdert.
+
+# Last inn pakker og data
+
+```{r, output: false}
+
+rm(list=ls()) 
+library(tidyverse)
+library(ggthemes)
+library(openxlsx)
+library(ggpubr)
+library(httr)
+library(rjstat)
+
+url <- "https://modals.li/downloads/gini_series_norway.xlsx"
+
+df_gini <- url %>%  
+  read.xlsx(sheet=1) %>% 
+  as_tibble()
+
+df_gini_navn <- df_gini %>% 
+  names()
+
+df_gini<- df_gini %>%
+  pivot_longer(!year,
+               names_to = "var", 
+               values_to = "verdi")
+
+url <- "https://github.com/uit-sok-1004-h22/uit-sok-1004-h22.github.io/blob/main/rkode/inntektsandeler.xlsx?raw=true"
+  
+df_andeler <- url %>%  
+  read.xlsx() %>% 
+  as_tibble()  
+
+df_andeler_navn <- df_gini %>% 
+  names()
+
+df_andeler <- df_andeler %>%
+  pivot_longer(!year,
+               names_to = "var", 
+               values_to = "verdi")
+
+df_andeler <- df_andeler %>% 
+  filter(year>=1875)
+
+url <- "https://github.com/uit-sok-1004-h22/uit-sok-1004-h22.github.io/blob/e36b270c865e077f797e9426e32b47740f2f3847/rkode/bnp.xlsx?raw=true"
+
+df_bnp <- url %>%  
+  read.xlsx(sheet=1) %>% 
+  as_tibble()
+
+navn_BNP <- df_bnp %>% 
+  names()
+
+df_bnp <- df_bnp %>% 
+  rename(BNP = navn_BNP[2],
+         year = navn_BNP[1])
+
+df_bnp <- df_bnp %>% 
+  mutate(DLBNP = 100*(log(BNP)-lag(log(BNP))))
+
+df_bnp <- df_bnp %>% 
+  filter(year >= 1875)
+```
+
+# Bakgrunn
+
+I norsk Ã¸konomisk historie blir Ã¥rene 1920 - 1930 beskrevet som harde. Les avsnittene om arbeidslÃ¸shet og inflasjon, paripolitikken, streiker og arbeidskonflikter i [artikkelen om mellomkrigstiden](https://snl.no/Norges_historie_fra_1905_til_1939) i Store norske leksikon. Se ogsÃ¥ [deres artikkel om paripolitikk](https://snl.no/paripolitikk).
+
+I denne prosjektoppgaven skal vi analysere utviklingen i norsk Ã¸konomi gjennom historiske data fra Norges Bank og Statistisk sentralbyrÃ¥. Vi vil ogsÃ¥ bruke data fra artikkelen [Estimating long-run income inequality from mixed tabular data: Empirical evidence from Norway, 1875-2017](https://www.sciencedirect.com/science/article/pii/S0047272720300608) av JÃ¸rgen Modalsli, Rolf Aaberge, og Anthony B. Atkinson, publisert i *Journal of Public Economics* i 2021.
+
+# BedÃ¸mmelse
+
+FormÃ¥let med oppgave er Ã¥ utfordre dere til Ã¥ gi en deskriptiv analyse av sammensatte Ã¸konomiske data gjennom visualisering og grunnleggende Ã¸konomisk teori. En god besvarelse er kjennetegnet av fÃ¸lgende trekk.
+
+1.  Egenskapene til data visualiseres i gode figurer. En god figur har presist definerte enheter, fornuftig skalering, og illustrerer tydelig relevante trekk ved dataene. BedÃ¸mmelsen vil vektlegge en tydelig beskrivelse av figurene. Figurer bÃ¸r ikke overbelastes med innhold og kan gjerne vÃ¦re vakre.
+
+2.  Besvarelsen svarer konkret pÃ¥ oppgaven med et konsist og presist sprÃ¥k. PÃ¥stander om Ã¥rsakssammenhenger underbygges med argumenter og kildehenvisninger.
+
+3.  Koden som lagde figurene er korrekt og godt dokumentert.
+
+# Oppgave I - 20%
+
+Betrakt fÃ¸lgende figurer.
+
+```{r}
+df_gini %>%
+  filter(year >= 1875) %>%
+  filter(var %in% df_gini_navn[4]) %>%
+  ggplot(aes(x=year,y=verdi)) +
+  geom_line() +
+  geom_smooth() +
+  ylim(0.25,0.75) +
+  theme_bw() +
+  labs(title = "Gini-koeffisienter for inntektsfordelingen i Norge",
+       subtitle = "1875â€“2017. Gjennomsnitt av Ã¸vre og nedre grense.",
+       y="Gini-koeffisient",
+       x="Ã…r",
+       caption = "Kilde: Modalsli, Aaberge og Atkinson (2021)")
+```
+
+```{r}
+df_bnp %>%
+filter(year >= 1875) %>%
+mutate(BNP = log(BNP)) %>% 
+ggplot(aes(x=year,y=BNP)) +
+geom_line() +
+geom_smooth() +
+theme_bw() +
+labs(title = "BNP per person",
+     subtitle = "Log faste-2005 kroner. 1875-2017.",
+     y="BNP per person",
+     x="Ã…r",
+     caption = "Kilde: Norges Bank")
+```
+
+```{r}
+df_bnp %>%
+filter(year >= 1875) %>%
+ggplot(aes(x=year,y=DLBNP)) +
+geom_line() +
+geom_smooth() +
+theme_bw() +
+labs(title = "BNP per person",
+     subtitle = "Ã…rlig endring. Log faste-2005 kroner. 1875-2017",
+     y="BNP per person",
+     x="Ã…r",
+     caption = "Kilde: Norges Bank")
+```
+
+**SpÃ¸rsmÃ¥l:** Beskriv hvordan ulikheten og veksten i inntekter utviklet seg i 1920-Ã¥rene sammenlignet med Ã¸vrige perioder.
+
+**Hint.** Det kan vÃ¦re nyttig Ã¥ endre koden for Ã¥ se nÃ¦rmere pÃ¥ bestemte tidsintervaller.
+
+**Merknad:** Anta at estimatet av BNP og Gini-koeffisienten i figuren er sann. Det er ikke nÃ¸dvendig Ã¥ diskutere metoden Norges Bank og Modalsli, Aaberge og Atkinson (2021) har brukt til Ã¥ estimere BNP og Gini-koeffisienten eller den statistiske usikkerheten rundt estimatet.
+
+Oppgave 1 svar:
+
+Vi ser at det er store ulikheter ca fra 1920 årene til 1940 vi ser at BNP per person er i forandring så godt som hvert år. Når vi ser på graf 3 ser vi ulikhetene ganske greit vi ser store variasjoner mellom inntketene. Særlig ifra ca 1920 årene til litt etter 1940 dette kan ha mye med arbeidsløshet, tvangsaksjon og at flere banker gikk konkurs. Graf 1 ser vi den gjennomsnitlige BNP per person Vi ser at den faller rundt 1920-1930 tallet og starter først å stige rundt 1970-1980 tallet. rundt 1925 steg BNPen ganske brått dette var på grunn av spekulantoppkjøp dette gjorde at eksprtørene så raskt som mulig tok å omsatte valutabeholdningene sine.
+
+# Oppgave II - 20%
+
+I `df_andeler` er det lagret inntektsandeler fordelt pÃ¥ desil og Ã¥r. Merk at dette er tallene bak Figur A9 i vedleggene til MAA, tilgjengelig [her](https://ars.els-cdn.com/content/image/1-s2.0-S0047272720300608-mmc1.pdf). For eksempel viser `share_10_20` hvor stor andel av den totale inntekten som gikk til intervallet mellom tiende- og tyvende persentil. I fÃ¸lgende figur kombinerer jeg BNP-tallene fra oppgave I med inntektsandelen til Ã¥ beregne gjennomsnittlig inntekt per person, fordelt pÃ¥ desil og Ã¥r.
+
+Betrakt fÃ¸lgende figurer.
+
+**Merknad.** Inntektene mÃ¥ skaleres nÃ¥r vi beregner andeler. La $a_{x-y,t}$ vÃ¦re inntektsandelen til intervallet mellom $x$ og $y$ i Ã¥r $t$. BNP per person i Ã¥r $t$ er gitt ved $\text{bnp}_{t}$ og er lagret i `df_bnp`. For eksempel sÃ¥ vil $a_{50-60,2005}$ og $bnp_{2005}$ vÃ¦re gitt ved `df_andeler$share_50_60` og `df_bnp$BNP` nÃ¥r `year` er lik `2005`. Da vil gjennomsnittlig inntekt i intervallet vÃ¦re gitt ved $$a_{x-y,t}\times\frac{100}{x-y}\times \text{bnp}_{t}.$$
+
+```{r}
+#| output: false
+
+# ny tabell hvor vi skal beregne inntekter
+df <- df_andeler 
+
+# lagrer en liste med Ã¥rene hvor vi har observasjoner med inntektsandeler
+years_list <- df$year %>% 
+  unique()
+
+# wide-format er enklere
+df <- df %>% 
+  pivot_wider(names_from = var, values_from = verdi) 
+
+# ny tabell med bnp-tall for Ã¥rene hvor vi har observasjoner
+df_temp <- df_bnp %>% 
+  filter(year %in% years_list)
+
+# anstendige navn
+df <- df %>%
+  rename("0-10" = "share_0_10",
+         "10-20" = "share_10_20",
+         "20-30" = "share_20_30",
+         "30-40" = "share_30_40",
+         "40-50" = "share_40_50",
+         "50-60" = "share_50_60",
+         "60-70" = "share_60_70",
+         "70-80" = "share_70_80",
+         "80-90" = "share_80_90",
+         "90-100" = "share_90_100",
+         "90-99" = "share_90_99",
+         "99-100" = "share_99_100")
+
+# lagrer navn
+df_navn <- df %>% 
+  names()
+
+df <- df %>% 
+  mutate(`0-10`=10*`0-10`*df_temp$BNP,
+         `10-20`  = (100/10)*`10-20`*df_temp$BNP,
+         `20-30`  = (100/10)*`20-30`*df_temp$BNP,
+         `30-40`  = (100/10)*`30-40`*df_temp$BNP,
+         `40-50`  = (100/10)*`40-50`*df_temp$BNP,
+         `50-60`  = (100/10)*`50-60`*df_temp$BNP,
+         `60-70`  = (100/10)*`60-70`*df_temp$BNP,
+         `70-80`  = (100/10)*`70-80`*df_temp$BNP,
+         `80-90`  = (100/10)*`80-90`*df_temp$BNP,
+         `90-100` = (100/10)*`90-100`*df_temp$BNP,
+         `90-99`  = (100/9)*`90-99`*df_temp$BNP,
+         `99-100` = (100/1)*`99-100`*df_temp$BNP,)
+
+df <- df %>%
+  pivot_longer(!year,
+               names_to = "var", 
+               values_to = "verdi")
+
+andeler <- df$var %>% 
+  unique()
+```
+
+```{r}
+df %>% 
+  filter(year %in% c(1900:1930)) %>% 
+  filter(var %in% andeler[1:10]) %>% 
+  mutate(verdi=verdi/(10^5)) %>%
+  ggplot(aes(x=year,y=verdi,color=var)) +
+  geom_line(size=1.25) +
+  labs(title = "BNP per person",
+       subtitle = "Hundretusener faste 2005-kroner. Fordelt pÃ¥ inntektsdesiler. 1900-1950",
+       y = "BNP per person",
+       x = "Ã…r",
+       color = "Desil",
+       caption = "Kilder: Modalsli, Aaberge og Atkinson (2021), Norges Bank") +
+theme_bw() 
+
+```
+
+```{r}
+df %>% 
+  filter(year %in% c(1900:1930)) %>% 
+  mutate(verdi=log(verdi)) %>% 
+  filter(var %in% andeler[1:10]) %>% 
+  
+  ggplot(aes(x=year,
+             y=verdi,
+             color=var)) +
+  
+  geom_line(size=1.25) +
+  
+  labs(title = "Log BNP per person", 
+       subtitle = "Faste 2005-kroner. Fordelt pÃ¥ inntektsdesiler. 1900 - 1930",
+       y = "Log BNP per person",
+       x = "Ã…r",
+       color =  "Desil",
+       caption = "Kilder: Modalsli, Aaberge og Atkinson (2021), Norges Bank") +
+theme_bw() 
+```
+
+**SpÃ¸rsmÃ¥l:** Beskriv hvordan endringen i reelle inntekter fordelte seg pÃ¥ inntektsdesiler mellom 1920 og 1930.
+
+En desil er hvor mye forskjellige klassene tjener 0-10 klassen har 0-10% lavest BNP per person og 90-100 er klassen der de har høyest BNP per person med 90-100%. Vi ser på grafene at den øverste klassen altså 90-100 desil klassene hadde best inntekt i løpet av 1920 og 1930 tallet, men når vi følger graf 2 ser vi at rundt 1925 at de lavere klassene har en økning på BNP per person. Vi ser at middelsklassene holder seg ganske jevent og har en liten stigende kurve, men ikke like stort sprang som de lavere klassene. Vi ser egentlig at alle klassene har en økning i en slags form bortsett fra de i desil 70-80 de har en liten drop rundt 1925 til 1928 før det går litt opp igjen.
+
+# Oppgave III - 60%
+
+Dere skal nÃ¥ presentere og beskrive utviklingen i to ytterligere Ã¸konomiske forhold som kjennetegnet de harde 1920-Ã¥rene. Jeg anbefaler Ã¥ bruke fÃ¸lgende kilder til Ã¥ finne data:
+
+-   [Historisk statistikk fra Norges Bank](https://www.norges-bank.no/en/topics/Statistics/Historical-monetary-statistics/)
+
+-   [Historisk statistikk fra SSB](https://www.ssb.no/a/histstat/)
+
+Her fÃ¸lger fire eksempler pÃ¥ tema dere kan, men ikke nÃ¸dvendigvis mÃ¥ velge. Lenkene leder til definisjonen i SNL, og dataene finnes i de ovennevnte kildene.
+
+-   [Realrente](https://snl.no/realrente)
+
+-   [UtlÃ¥n (kreditt) fra banker](https://snl.no/utlÃ¥n)
+
+-   [Arbeidsledighet](https://snl.no/arbeidsledighet)
+
+-   [Arbeidskonflikter og streik](https://snl.no/streik)
+
+I besvarelsen skal dere forklare hvorfor dataene er relevante og gi en grundig beskrivelse av deres utvikling. Lengden pÃ¥ besvarelsen skal vÃ¦re pÃ¥ 750 - 1500 ord.
+
+```{r}
+url <- "https://data.ssb.no/api/v0/no/table/08981/"
+query <- '{
+  "query": [
+    {
+      "code": "Maaned",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "90"
+        ]
+      }
+    },
+    {
+      "code": "Tid",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "1920",
+          "1921",
+          "1922",
+          "1923",
+          "1924",
+          "1925",
+          "1926",
+          "1927",
+          "1928",
+          "1929",
+          "1930",
+          "1931",
+          "1932",
+          "1933",
+          "1934",
+          "1935",
+          "1936",
+          "1937",
+          "1938",
+          "1939",
+          "1940",
+          "1941",
+          "1942",
+          "1943",
+          "1944",
+          "1945",
+          "1946",
+          "1947",
+          "1948",
+          "1949",
+          "1950"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+
+hent_indeks.tmp <- url %>%
+  POST(body = query, encode = "json")
+    
+df_kpi <- hent_indeks.tmp %>%
+  content("text") %>%
+  fromJSONstat()%>%
+  as_tibble()
+ggplot(df_kpi, aes(x=år, y=value))+
+  geom_bar(stat = "identity")
+```
+
+Konsumprisindeks(KPI) viser endringer i priser på diverse varer og tjenester som blir kjøp av en familie, dette er målt opp mot et basisår. Et basisår vil si at i stede for å ta beregingen fra starten av økonomien vil det si at man velger seg et punkt midt i tidslinjen og renger seg opp eller ned derifra. Prosentandelen til KPIen blir brukt vanligvis som et mål på inflasjon. Vi har fått oppgitt på SSB sin nettside om hva de har satt som basisår. Der jeg har hentet tabellen legger jeg lenken med helt til slutt av denne teksten, SSB forteller at KPIen har basisåret i 2015 og at den er lik 100. Det vil si at du kunne kjøpe varer for rundt 4kr rundt 1920 til 1950 tallet kanskje til og med lengere, men jeg har bare tatt med fra 1920 til 1950 tallet., men i 2015 tilsvarte dette rundt 100kr for å kjøpe de samme varene som på 1920 tallet. Vi ser fallet ganske tidlig på 1920 tallet da den økonomiske krisen for Norge startet vi ser på grafen at KPIen ikke stiger før rundt 1940 da begynner den å bli nærmere normalen. Vi kan se at i 1920 tallet at den var forsatt litt høy i forhold til resten av 1920-1930 årene. Vi ser at droppet på KPIen faller midt på 1920 tallet, men blir påvirket langt utover 1930 tallet og begynner ikke å ta seg opp igjen før rundt 1940 tallet. Den lave KPIen tilsvarer den norske økonomiske krisen rundt 1920 tallet, Norge var i stor gjeld etter første verdenskrig som gjorde de tøffe 1920 årene i forhold til økonomien. Slik at Norge måtte bygge økonomien opp igjen. Dette var på grunn av verden sin økonomi gikk veldig dårlig så derfor ble Norge sin økonomi henge på laset.
+
+```{r}
+url2 <- "https://data.ssb.no/api/v0/no/table/08981/"
+query2 <- '{
+  "query": [
+    {
+      "code": "Maaned",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "01",
+          "02",
+          "03",
+          "04",
+          "05",
+          "06",
+          "07",
+          "08",
+          "09",
+          "10",
+          "11",
+          "12"
+        ]
+      }
+    },
+    {
+      "code": "Tid",
+      "selection": {
+        "filter": "item",
+        "values": [
+          "1920",
+          "1921",
+          "1922",
+          "1923",
+          "1924",
+          "1925",
+          "1926",
+          "1927",
+          "1928",
+          "1929",
+          "1930"
+        ]
+      }
+    }
+  ],
+  "response": {
+    "format": "json-stat2"
+  }
+}'
+hent_indeks.tmp <- url2 %>%
+  POST(body = query2, encode = "json")
+    
+df_kpi2 <- hent_indeks.tmp %>%
+  content("text") %>%
+  fromJSONstat()%>%
+  as_tibble()
+df_kpi2$måned_år <- paste(df_kpi2$måned,df_kpi2$år)
+ggplot(df_kpi2, aes(x=måned_år, y=value))+
+  geom_bar(stat = "identity")
+```
+
+Jeg har laget en graf der jeg viser alle måndene i stede for hvert år. Det ble litt vanskelig å lese, men når man leser på datasettet som er laget er det greit å forstå. Vi ser at alle er sortert etter månder slik at alle årene for januar er først og etter januar er februar årene også videre. Dette er alle månedene fra januar til desmber i årene 1920-1930. Vi ser det det her høyest på grafen dette tilsvarer 1920 og laveste graf før det stiger igjen er 1930 før den går på neste måned og starter på 1920 igjen. Selv om vi velger og bare ta de måndene til de forskjellige årene ser vi droppene på årene. Vi ser at måndene har ikke så mye å si i seg selv vi ser at det er en kurve ut alle måndene så det er egentlig best å ta å måle i år slik vi gjorde i graf 1, men vi trenger kanskje ikke å ta med alle årene som vi gjorde i graf 1. Det holder kanskje til 1930 eller 1940, vi ser egentlig det samme droppe i graf 2 som vi ser i graf 1 vi ser at den norske økonomi krisen påvirket ganske mye på KPIen i 1920 til 1930 årene. Det er forsåvidt vanskelig å se droppene fra år til år når man bare ser for eksempel alle årene i januar etter hverandre i stede for å se et år med alle måndene av gangen. Hvis vi hadde hatt de side om side så kunne det vært enklere å se forskjellene.
+
+Konklusjon
+
+Vi har sett en del på KPIene og puttet det opp mot den norske økonomi krisen i 1920 årene hvordan det påvirket det norskefolk. Vi har sett på den norske økonomien i 1920 årene helt opp til 1950 årene hvor hardt rammet det norske folk ble av denne økonomsike krisen. Vi ser at KPIen blir redusert forsåvidt en del i 1920 årene. det er veldig vanskelig å sammenligne i forhold til dagens KPI, men man klarer det til et hvis nivå. I grafene ser vi en likhet på nedgangen mellom 1920 og 1930, men siden vi har litt mer i graf 1 en i graf 2 så ser vi den øker litt rundt 1940 tallet som viser at vi kommer oss ut av den økonomiske krisen. Norge måtte bygge opp økonomien igjen etter første verdenskrig på grunn av verden sin økonomi ble sveket.
+
+https://www.ssb.no/statbank/table/08981/tableViewLayout1/
